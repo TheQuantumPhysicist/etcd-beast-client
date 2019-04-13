@@ -1,15 +1,16 @@
 #include "etcd-beast/ETCDClient.h"
 
 #include "etcd-beast/BaseN.h"
+#include "etcd-beast/ETCDError.h"
 #include "etcd-beast/HttpSession.h"
 
 void ETCDClient::start()
 {
     if (threadCount <= 0) {
-        throw std::runtime_error("Invalid number of threads");
+        throw ETCDError(ETCDERROR_INVALID_NUM_OF_THREADS, "Invalid number of threads");
     }
     if (address.empty()) {
-        throw std::runtime_error("Invalid address");
+        throw ETCDError(ETCDERROR_INVALID_ADDRESS, "Invalid address");
     }
     io_context_work.reset(new boost::asio::io_context::work(io_context));
     for (auto i = 0u; i < std::thread::hardware_concurrency(); ++i) {
@@ -29,7 +30,7 @@ void ETCDClient::base64pad(std::string& b64string)
 {
     unsigned padLength = 4 - b64string.size() % 4;
     padLength          = padLength < 4 ? padLength : 0;
-    b64string += std::string(padLength, '=');
+    g b64string += std::string(padLength, '=');
 }
 
 ETCDClient::ETCDClient(const std::string& Address, uint16_t Port, unsigned ThreadCount)
@@ -89,7 +90,8 @@ ETCDResponse ETCDClient::customCommand(const std::string& url, const std::string
     static const int   httpVersion = 11; // http 1.1
 
     auto session = std::make_shared<HttpSession>(io_context);
-    session->run(http::verb::post, address, std::to_string(port), target, jsonCommand, httpVersion);
+    session->run(boost::beast::http::verb::post, address, std::to_string(port), target, jsonCommand,
+                 httpVersion);
     ETCDResponse response(session->getResponse());
     return response;
 }

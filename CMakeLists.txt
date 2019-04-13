@@ -20,7 +20,7 @@ include_directories(${Boost_INCLUDE_DIRS})
 
 ###### GTEST ###############################################
 # This is cloned from googletest repo
-set(GTEST_PATH ${CMAKE_SOURCE_DIR}/../googletest/googletest)
+set(GTEST_PATH ${CMAKE_SOURCE_DIR}/3rdparty/googletest/googletest)
 include_directories(${GTEST_PATH}/include)
 include_directories(${GTEST_PATH}/)
 add_library(gtest ${GTEST_PATH}/src/gtest-all.cc)
@@ -31,6 +31,7 @@ add_library(${PROJECT_NAME} STATIC
     ${CMAKE_SOURCE_DIR}/src/ETCDClient.cpp
     ${CMAKE_SOURCE_DIR}/src/HttpSession.cpp
     ${CMAKE_SOURCE_DIR}/src/ETCDResponse.cpp
+    ${CMAKE_SOURCE_DIR}/src/ETCDError.cpp
     )
 
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/include")

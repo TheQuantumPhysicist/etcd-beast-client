@@ -1,6 +1,7 @@
 #include "etcd-beast/ETCDResponse.h"
 
 #include "etcd-beast/BaseN.h"
+#include "etcd-beast/ETCDError.h"
 #include <jsoncpp/json/json.h>
 
 // using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
@@ -19,10 +20,12 @@ void ETCDResponse::parse()
             isFutureRetrieved = true;
             rawResponse       = response.get();
         }
-
         r.parse(rawResponse.body(), v);
     }
-    __verifyHeaderContent(v);
+
+    __processIfError(v);
+
+    __verifyHeaderContent(v, rawResponse.body());
     clusterId = std::stoull(v["header"]["cluster_id"].asString());
     memberId  = std::stoull(v["header"]["member_id"].asString());
     revision  = std::stoull(v["header"]["revision"].asString());
@@ -52,42 +55,56 @@ ETCDResponse::KVEntry ETCDResponse::parseSingleKvEntry(const Json::Value& kvVal)
     return result;
 }
 
-void ETCDResponse::__verifyHeaderContent(const Json::Value& v)
+void ETCDResponse::__verifyHeaderContent(const Json::Value& v, const std::string& vStr)
 {
     if (!v.isMember("header")) {
-        throw std::runtime_error("No header");
+        throw ETCDError(ETCDERROR_INVALID_MSG_HEADER, "No header found in: " + vStr);
     }
     if (!v["header"].isMember("cluster_id")) {
-        throw std::runtime_error("No cluster id");
+        throw ETCDError(ETCDERROR_INVALID_MSG_HEADER, "No cluster id in: " + vStr);
     }
     if (!v["header"].isMember("member_id")) {
-        throw std::runtime_error("No member id");
+        throw ETCDError(ETCDERROR_INVALID_MSG_HEADER, "No member id in: " + vStr);
     }
     if (!v["header"].isMember("revision")) {
-        throw std::runtime_error("No revision");
+        throw ETCDError(ETCDERROR_INVALID_MSG_HEADER, "No revision in: " + vStr);
     }
     if (!v["header"].isMember("raft_term")) {
-        throw std::runtime_error("No raft term");
+        throw ETCDError(ETCDERROR_INVALID_MSG_HEADER, "No raft term in: " + vStr);
     }
 }
 
 void ETCDResponse::__verifyKVEntryContent(const Json::Value& kvVal)
 {
     if (!kvVal.isMember("key")) {
-        throw std::runtime_error("No key id");
+        throw ETCDError(ETCDERROR_INVALID_MSG_HEADER, "No key id in: " + __jsonToString(kvVal));
     }
     if (!kvVal.isMember("create_revision")) {
-        throw std::runtime_error("No create_revision");
+        throw ETCDError(ETCDERROR_INVALID_MSG_HEADER, "No create_revision in: " + __jsonToString(kvVal));
     }
     if (!kvVal.isMember("mod_revision")) {
-        throw std::runtime_error("No mod_revision");
+        throw ETCDError(ETCDERROR_INVALID_MSG_HEADER, "No mod_revision in: " + __jsonToString(kvVal));
     }
     if (!kvVal.isMember("version")) {
-        throw std::runtime_error("No version");
+        throw ETCDError(ETCDERROR_INVALID_MSG_HEADER, "No version in: " + __jsonToString(kvVal));
     }
     if (!kvVal.isMember("value")) {
-        throw std::runtime_error("No value");
+        throw ETCDError(ETCDERROR_INVALID_MSG_HEADER, "No value in: " + __jsonToString(kvVal));
     }
+}
+
+void ETCDResponse::__processIfError(const Json::Value& v)
+{
+    if (v.isMember("error")) {
+        throw ETCDError(ETCDERROR_ETCD_RETURNED_ERROR, v["code"].asInt(),
+                        "ETCD returned an error: " + v["error"].asString());
+    }
+}
+
+std::string ETCDResponse::__jsonToString(const Json::Value& v)
+{
+    Json::FastWriter fastWriter;
+    return fastWriter.write(v);
 }
 
 const std::vector<ETCDResponse::KVEntry>& ETCDResponse::getKVEntries()
