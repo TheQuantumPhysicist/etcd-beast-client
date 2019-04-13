@@ -12,15 +12,48 @@ namespace http = boost::beast::http;   // from <boost/beast/http.hpp>
 
 std::future<http::response<http::string_body>> HttpSession::getResponse()
 {
+    if (isLongRunningRequest) {
+        throw ETCDError(ETCDERROR_REQUESTED_SINGLE_RESPONSE_FROM_LONG_REQUEST,
+                        "Attempted to retrieve a response from a single running request");
+    }
     return responsePromise.get_future();
 }
 
-HttpSession::HttpSession(boost::asio::io_context& ioc) : resolver_(ioc), socket_(ioc) {}
+HttpSession::HttpSession(boost::asio::io_context& ioc) : resolver_(ioc), socket_(ioc), strand_(ioc) {}
 
 void HttpSession::run(http::verb verb, const std::string& host, const std::string& port,
                       const std::string& target, const std::string& body, int version,
                       const std::map<std::string, std::string>& fields)
 {
+    isLongRunningRequest = false;
+    req_.version(version);
+    req_.method(verb);
+    req_.target(target);
+    req_.set(http::field::host, host);
+    req_.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
+    req_.set(http::field::content_type, "application/json");
+    req_.body() = body;
+    req_.set(http::field::content_length, body.size());
+    for (const auto& f : fields) {
+        req_.insert(f.first, f.second);
+    }
+
+    // Look up the domain name
+    auto self = shared_from_this();
+    resolver_.async_resolve(host, port,
+                            [self](boost::system::error_code ec, tcp::resolver::results_type results) {
+                                self->on_resolve(ec, results);
+                            });
+}
+
+void HttpSession::runLongRunningRequest(http::verb verb, const std::string& host,
+                                        const std::string& port, const std::string& target,
+                                        const std::string& body, int version,
+                                        std::function<void(Json::Value)>          dataAvailableCallback,
+                                        const std::map<std::string, std::string>& fields)
+{
+    dataAvailableCallback_ = dataAvailableCallback;
+    isLongRunningRequest   = true;
     req_.version(version);
     req_.method(verb);
     req_.target(target);
@@ -44,8 +77,10 @@ void HttpSession::run(http::verb verb, const std::string& host, const std::strin
 void HttpSession::on_resolve(boost::system::error_code ec, tcp::resolver::results_type results)
 {
     if (ec) {
-        throw ETCDError(ETCDERROR_FAILED_TO_RESOLVE_ADDRESS,
-                        "Failed to resolve address: " + ec.message());
+        auto ex =
+            ETCDError(ETCDERROR_FAILED_TO_RESOLVE_ADDRESS, "Failed to resolve address: " + ec.message());
+        responsePromise.set_exception(std::make_exception_ptr(ex));
+        throw ex;
     }
 
     // Make the connection on the IP address we get from a lookup
@@ -60,7 +95,9 @@ void HttpSession::on_resolve(boost::system::error_code ec, tcp::resolver::result
 void HttpSession::on_connect(boost::system::error_code ec)
 {
     if (ec) {
-        throw ETCDError(ETCDERROR_FAILED_TO_CONNECT, "Failed to connect: " + ec.message());
+        auto ex = ETCDError(ETCDERROR_FAILED_TO_CONNECT, "Failed to connect: " + ec.message());
+        responsePromise.set_exception(std::make_exception_ptr(ex));
+        throw ex;
     }
 
     // Send the HTTP request to the remote host
@@ -74,26 +111,67 @@ void HttpSession::on_connect(boost::system::error_code ec)
 void HttpSession::on_write(boost::system::error_code ec, std::size_t)
 {
     if (ec) {
-        throw ETCDError(ETCDERROR_FAILED_TO_WRITE_SOCKET,
-                        "Failed to write to socket with error: " + ec.message());
+        auto ex = ETCDError(ETCDERROR_FAILED_TO_WRITE_SOCKET,
+                            "Failed to write to socket with error: " + ec.message());
+        responsePromise.set_exception(std::make_exception_ptr(ex));
+        throw ex;
     }
 
-    // Receive the HTTP response
-    auto self = shared_from_this();
-    http::async_read(socket_, buffer_, res_,
-                     [self](boost::system::error_code ec, std::size_t bytes_transferred) {
-                         self->on_read(ec, bytes_transferred);
-                     });
+    if (isLongRunningRequest) {
+        if (!parser_.is_done()) {
+            // Receive the HTTP response header
+            auto self = shared_from_this();
+            http::async_read_header(socket_, buffer_, parser_,
+                                    [self](boost::system::error_code ec, std::size_t bytes_transferred) {
+                                        self->on_read_long_running(ec, bytes_transferred);
+                                    });
+        }
+    } else {
+        // Receive the HTTP response
+        auto self = shared_from_this();
+        http::async_read(
+            socket_, buffer_, res_,
+            strand_.wrap([self](boost::system::error_code ec, std::size_t bytes_transferred) {
+                self->on_read(ec, bytes_transferred);
+            }));
+    }
 }
 
 void HttpSession::on_read(boost::system::error_code ec, std::size_t)
 {
     if (ec) {
-        throw ETCDError(ETCDERROR_FAILED_TO_READ_SOCKET,
-                        "Failed to read from socket with error: " + ec.message());
+        auto ex = ETCDError(ETCDERROR_FAILED_TO_READ_SOCKET,
+                            "Failed to read from socket with error: " + ec.message());
+        responsePromise.set_exception(std::make_exception_ptr(ex));
+        throw ex;
+    }
+    responsePromise.set_value(res_);
+}
+
+void HttpSession::on_read_long_running(boost::system::error_code ec, std::size_t)
+{
+    if (ec) {
+        auto ex = ETCDError(ETCDERROR_FAILED_TO_READ_SOCKET_LONG_RUNNING,
+                            "Failed to read from socket for a long running session with error: " +
+                                ec.message());
+        throw ex;
     }
 
-    responsePromise.set_value(res_);
+    jsonParser.pushData(parser_.get().body());
+
+    std::vector<Json::Value> parsedData = jsonParser.pullDataAndClear();
+    for (const auto& jsonValue : parsedData) {
+        dataAvailableCallback_(jsonValue);
+    }
+
+    if (!parser_.is_done()) {
+        auto self = shared_from_this();
+        boost::beast::http::async_read_some(
+            socket_, buffer_, parser_,
+            strand_.wrap([self](boost::system::error_code ec, std::size_t bytes_transferred) {
+                self->on_read(ec, bytes_transferred);
+            }));
+    }
 }
 
 HttpSession::~HttpSession()

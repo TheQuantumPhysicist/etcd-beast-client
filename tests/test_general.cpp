@@ -1,6 +1,8 @@
 #include "gtest/gtest.h"
 
 #include "etcd-beast/ETCDClient.h"
+#include "etcd-beast/ETCDError.h"
+#include "etcd-beast/JsonStringParserQueue.h"
 
 TEST(etcd_beast, general)
 {
@@ -38,4 +40,18 @@ TEST(etcd_beast, delete_dir)
     EXPECT_EQ(rg2.getKVEntries().at(0).value, testVal2);
     ETCDResponse rd = client.del("test").wait();
     EXPECT_EQ(rd.getKVEntries().size(), 0);
+}
+
+TEST(json_string_queue, basic)
+{
+    JsonStringParserQueue q;
+    EXPECT_NO_THROW(q.pushData(R"({"Hello": "World!"})"));
+    EXPECT_NO_THROW(q.pushData(R"({"Hello": "World!")"));
+    EXPECT_NO_THROW(q.pushData(R"(})"));
+    EXPECT_NO_THROW(q.pushData(R"({"Hello":)"));
+    EXPECT_NO_THROW(q.pushData(R"( "World!"})"));
+    EXPECT_NO_THROW(q.pushData(R"({})"));
+    EXPECT_THROW(q.pushData(R"(})"), ETCDError);
+    EXPECT_THROW(q.pushData(R"({}})"), ETCDError);
+    EXPECT_THROW(q.pushData(R"({"Hello": "World!"}})"), ETCDError);
 }
