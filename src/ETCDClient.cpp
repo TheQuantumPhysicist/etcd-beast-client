@@ -30,7 +30,7 @@ void ETCDClient::base64pad(std::string& b64string)
 {
     unsigned padLength = 4 - b64string.size() % 4;
     padLength          = padLength < 4 ? padLength : 0;
-    g b64string += std::string(padLength, '=');
+    b64string += std::string(padLength, '=');
 }
 
 ETCDClient::ETCDClient(const std::string& Address, uint16_t Port, unsigned ThreadCount)
