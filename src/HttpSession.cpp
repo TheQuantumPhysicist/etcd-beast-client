@@ -10,12 +10,10 @@
 using tcp      = boost::asio::ip::tcp; // from <boost/asio/ip/tcp.hpp>
 namespace http = boost::beast::http;   // from <boost/beast/http.hpp>
 
+void HttpSession::cancel() { socket_.cancel(); }
+
 std::future<http::response<http::string_body>> HttpSession::getResponse()
 {
-    if (isLongRunningRequest) {
-        throw ETCDError(ETCDERROR_REQUESTED_SINGLE_RESPONSE_FROM_LONG_REQUEST,
-                        "Attempted to retrieve a response from a single running request");
-    }
     return responsePromise.get_future();
 }
 
@@ -154,10 +152,22 @@ void HttpSession::on_read_long_running(boost::system::error_code ec, std::size_t
         auto ex = ETCDError(ETCDERROR_FAILED_TO_READ_SOCKET_LONG_RUNNING,
                             "Failed to read from socket for a long running session with error: " +
                                 ec.message());
+        if (ec == boost::asio::error::operation_aborted) {
+            return;
+        }
+        if (!firstTimeSet) {
+            firstTimeSet = true;
+            responsePromise.set_exception(std::make_exception_ptr(ex));
+        }
         throw ex;
     }
 
     jsonParser.pushData(parser_.get().body());
+    if (!firstTimeSet) {
+        firstTimeSet = true;
+        responsePromise.set_value(parser_.get());
+    }
+    parser_.get().body().clear();
 
     std::vector<Json::Value> parsedData = jsonParser.pullDataAndClear();
     for (const auto& jsonValue : parsedData) {
@@ -169,9 +179,37 @@ void HttpSession::on_read_long_running(boost::system::error_code ec, std::size_t
         boost::beast::http::async_read_some(
             socket_, buffer_, parser_,
             strand_.wrap([self](boost::system::error_code ec, std::size_t bytes_transferred) {
-                self->on_read(ec, bytes_transferred);
+                self->on_read_long_running(ec, bytes_transferred);
             }));
     }
+}
+
+std::future<void> HttpSession::write_message(const std::string& msg)
+{
+    auto s = shared_from_this();
+
+    std::shared_ptr<CancelMessageData> cancelData = std::make_shared<CancelMessageData>();
+    cancelData->message                           = msg;
+    auto self                                     = shared_from_this();
+    boost::asio::async_write(
+        s->socket_, boost::asio::buffer(cancelData->message),
+        [self, cancelData](boost::system::error_code ec, std::size_t bytes_transferred) {
+            self->write_message_callback(ec, bytes_transferred, cancelData);
+        });
+    return cancelData->donePromise.get_future();
+}
+
+void HttpSession::write_message_callback(boost::system::error_code ec, std::size_t /*bytes_transferred*/,
+                                         std::shared_ptr<CancelMessageData> cancelData)
+{
+    if (ec) {
+        cancelData->donePromise.set_exception(std::make_exception_ptr(
+            ETCDError(ETCDERROR_CANCEL_WATCH_RETURNED_ERROR, "Error while canceling watch with call " +
+                                                                 cancelData->message +
+                                                                 " ; with error: " + ec.message())));
+        return;
+    }
+    cancelData->donePromise.set_value();
 }
 
 HttpSession::~HttpSession()

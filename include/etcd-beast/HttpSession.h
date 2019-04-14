@@ -20,6 +20,12 @@
 
 class HttpSession : public std::enable_shared_from_this<HttpSession>
 {
+    struct CancelMessageData
+    {
+        std::string        message;
+        std::promise<void> donePromise;
+    };
+
     boost::asio::ip::tcp::resolver                               resolver_;
     boost::asio::ip::tcp::socket                                 socket_;
     boost::beast::flat_buffer                                    buffer_; // (Must persist between reads)
@@ -33,8 +39,11 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
     JsonStringParserQueue                                              jsonParser;
     std::function<void(Json::Value)>                                   dataAvailableCallback_;
     boost::asio::io_context::strand                                    strand_;
+    bool                                                               firstTimeSet = false;
 
 public:
+    void cancel();
+
     std::future<boost::beast::http::response<boost::beast::http::string_body>> getResponse();
 
     explicit HttpSession(boost::asio::io_context& ioc);
@@ -52,6 +61,9 @@ public:
     void on_write(boost::system::error_code ec, std::size_t /*bytes_transferred*/);
     void on_read(boost::system::error_code ec, std::size_t /*bytes_transferred*/);
     void on_read_long_running(boost::system::error_code ec, std::size_t /*bytes_transferred*/);
+    std::future<void> write_message(const std::string& msg);
+    void              write_message_callback(boost::system::error_code ec, std::size_t bytes_transferred,
+                                             std::shared_ptr<CancelMessageData> cancelData);
 
     ~HttpSession();
 };

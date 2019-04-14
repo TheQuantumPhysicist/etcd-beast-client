@@ -2,6 +2,7 @@
 #define ETCDCLIENT_H
 
 #include "ETCDResponse.h"
+#include "ETCDWatch.h"
 #include <boost/asio/io_context.hpp>
 #include <string>
 #include <thread>
@@ -21,7 +22,8 @@ class ETCDClient
     void start();
     void stop();
 
-    static void base64pad(std::string& b64string);
+    static void        base64pad(std::string& b64string);
+    static std::string ToBase64(const std::string& str);
 
 public:
     ETCDClient(const std::string& Address, uint16_t Port,
@@ -30,6 +32,7 @@ public:
     ETCDResponse set(const std::string& key, const std::string& value);
     ETCDResponse get(const std::string& key);
     ETCDResponse del(const std::string& key);
+    ETCDWatch    watch(const std::string& key, const std::function<void(ETCDParsedResponse)> callback);
     ETCDResponse customCommand(const std::string& url, const std::string& jsonCommand);
     void         setVersionUrlPrefix(std::string str = "/v3alpha");
 };

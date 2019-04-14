@@ -2,7 +2,23 @@
 
 #include "etcd-beast/ETCDClient.h"
 #include "etcd-beast/ETCDError.h"
+#include "etcd-beast/ETCDParsedResponse.h"
 #include "etcd-beast/JsonStringParserQueue.h"
+
+std::string GenerateRandomString__test(const int len)
+{
+    static const char alphanum[] = "0123456789"
+                                   "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                                   "abcdefghijklmnopqrstuvwxyz";
+
+    std::string s;
+    s.resize(len);
+
+    for (int i = 0; i < len; ++i) {
+        s[i] = alphanum[rand() % (sizeof(alphanum) - 1)];
+    }
+    return s;
+}
 
 TEST(etcd_beast, general)
 {
@@ -42,14 +58,87 @@ TEST(etcd_beast, delete_dir)
     EXPECT_EQ(rd.getKVEntries().size(), 0);
 }
 
+std::mutex mtx;
+
+void callback(ETCDParsedResponse response, const std::string& expectedValue, unsigned expectedSize,
+              std::atomic_bool& finished, const std::string& callerLine)
+{
+    std::lock_guard<std::mutex> lg(mtx);
+    finished.store(true);
+    ASSERT_EQ(response.getKVEntries().size(), expectedSize) << "From line: " << callerLine;
+    if (!response.getKVEntries().empty()) {
+        EXPECT_EQ(response.getKVEntries().at(0).value, expectedValue) << "From line: " << callerLine;
+    }
+}
+
+TEST(etcd_beast, watch)
+{
+    ETCDClient client("127.0.0.1", 2379);
+    srand(time(nullptr));
+    std::string  testKey = GenerateRandomString__test(10);
+    std::string  testVal = std::to_string(rand());
+    ETCDResponse rs      = client.set("/test/" + testKey, testVal).wait();
+    ETCDResponse rg      = client.get("/test/" + testKey).wait();
+    ASSERT_EQ(rg.getKVEntries().size(), 1);
+    EXPECT_EQ(rg.getKVEntries().at(0).value, testVal);
+    //    std::cout << rg.getJsonResponse() << std::endl;
+
+    std::string           expectedValue;
+    std::atomic<unsigned> expectedSize;
+    std::string           lineNum;
+    std::atomic_bool      finished;
+    {
+        std::lock_guard<std::mutex> lg(mtx);
+        expectedSize.store(0);
+        lineNum = std::to_string(__LINE__);
+        finished.store(false);
+    }
+
+    // watch
+    ETCDWatch w = client.watch("/test/" + testKey, [&expectedValue, &finished, &expectedSize,
+                                                    &lineNum](ETCDParsedResponse response) {
+        callback(response, expectedValue, expectedSize, finished, lineNum);
+    });
+    w.wait();
+
+    while (!finished.load()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    {
+        std::lock_guard<std::mutex> lg(mtx);
+        expectedValue = "xx123456";
+        lineNum       = std::to_string(__LINE__);
+        expectedSize.store(1);
+        finished.store(false);
+    }
+    ETCDResponse rs1 = client.set("/test/" + testKey, expectedValue).wait();
+
+    while (!finished.load()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    w.cancel();
+}
+
 TEST(json_string_queue, basic)
 {
     JsonStringParserQueue q;
     EXPECT_NO_THROW(q.pushData(R"({"Hello": "World!"})"));
     EXPECT_NO_THROW(q.pushData(R"({"Hello": "World!")"));
     EXPECT_NO_THROW(q.pushData(R"(})"));
+    auto s = q.pullDataAndClear();
+    EXPECT_EQ(s.size(), 2);
+
     EXPECT_NO_THROW(q.pushData(R"({"Hello":)"));
     EXPECT_NO_THROW(q.pushData(R"( "World!"})"));
+    s = q.pullDataAndClear();
+    EXPECT_EQ(s.size(), 1);
+
+    EXPECT_NO_THROW(q.pushData(R"({"Hello": "World!"}{"Hello": "World!"}{"Hello": "World!"})"));
+    s = q.pullDataAndClear();
+    EXPECT_EQ(s.size(), 3);
+
     EXPECT_NO_THROW(q.pushData(R"({})"));
     EXPECT_THROW(q.pushData(R"(})"), ETCDError);
     EXPECT_THROW(q.pushData(R"({}})"), ETCDError);

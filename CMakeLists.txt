@@ -33,6 +33,8 @@ add_library(${PROJECT_NAME} STATIC
     ${CMAKE_SOURCE_DIR}/src/ETCDResponse.cpp
     ${CMAKE_SOURCE_DIR}/src/ETCDError.cpp
     ${CMAKE_SOURCE_DIR}/src/JsonStringParserQueue.cpp
+    ${CMAKE_SOURCE_DIR}/src/ETCDWatch.cpp
+    ${CMAKE_SOURCE_DIR}/src/ETCDParsedResponse.cpp
     )
 
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/include")
