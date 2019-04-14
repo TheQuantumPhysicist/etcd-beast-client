@@ -29,4 +29,4 @@ Make sure you clone the submodules (that is why that recursive is there)
 Please do not install the library to your system unless you know what you are doing. I have not tried that and I never do that in my system.
 
 ##### Contibuting
-Feel free to contribute by pushing to a branches. Please make sure any changes you make are thread-safe. This is the primary requirement of this library.
+Feel free to contribute by pushing to a branches. Please make sure any changes you make are thread-safe by heavily testing with clang-thread-sanitizer. This is the primary requirement of this library, besides testing anything added.
