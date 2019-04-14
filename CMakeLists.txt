@@ -46,3 +46,14 @@ target_link_libraries(${PROJECT_NAME}
     )
 
 add_subdirectory(tests)
+
+file(GLOB_RECURSE EtcdBeastHeaders
+    "${CMAKE_SOURCE_DIR}/include/etcd-beast/*.h"
+    )
+
+
+install(FILES ${EtcdBeastHeaders}
+    DESTINATION include/etcd-beast)
+
+install(TARGETS ${PROJECT_NAME}
+    DESTINATION lib)
