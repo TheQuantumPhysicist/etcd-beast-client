@@ -4,7 +4,6 @@
 #include "etcd-beast/ETCDError.h"
 #include <jsoncpp/json/json.h>
 
-// using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
 namespace http = boost::beast::http; // from <boost/beast/http.hpp>
 
 void ETCDResponse::parse()
