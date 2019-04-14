@@ -2,7 +2,6 @@
 
 void ETCDWatch::convertJsonToETCDParsedResponse(Json::Value v)
 {
-    // TODO: avoid converting back to string as an optimization
     //    Json::FastWriter w;
     //        std::cout << w.write(v) << std::endl;
     if (v.isMember("result")) {
