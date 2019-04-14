@@ -59,6 +59,7 @@ TEST(etcd_beast, delete_dir)
 }
 
 std::mutex mtx;
+int        revision = -1;
 
 void callback(ETCDParsedResponse response, const std::string& expectedValue, unsigned expectedSize,
               std::atomic_bool& finished, const std::string& callerLine)
@@ -69,11 +70,20 @@ void callback(ETCDParsedResponse response, const std::string& expectedValue, uns
     if (!response.getKVEntries().empty()) {
         EXPECT_EQ(response.getKVEntries().at(0).value, expectedValue) << "From line: " << callerLine;
     }
+    // ensure that revision counting is correct
+    if (revision < 0) {
+        revision = response.getRevision();
+    } else {
+        EXPECT_EQ(revision + 1, response.getRevision());
+        revision++;
+    }
 }
 
 TEST(etcd_beast, watch)
 {
+
     ETCDClient client("127.0.0.1", 2379);
+    client.del("/test/");
     srand(time(nullptr));
     std::string  testKey = GenerateRandomString__test(10);
     std::string  testVal = std::to_string(rand());
@@ -118,7 +128,24 @@ TEST(etcd_beast, watch)
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
+    const int numOfWatchTriggeres = 100;
+    for (int i = 0; i < numOfWatchTriggeres; i++) {
+        {
+            std::lock_guard<std::mutex> lg(mtx);
+            expectedValue = GenerateRandomString__test(rand() % 1000);
+            lineNum       = std::to_string(__LINE__);
+            expectedSize.store(1);
+            finished.store(false);
+        }
+        ETCDResponse rsi = client.set("/test/" + testKey, expectedValue).wait();
+
+        while (!finished.load()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+    }
     w.cancel();
+
+    client.del("/test/");
 }
 
 TEST(json_string_queue, basic)
