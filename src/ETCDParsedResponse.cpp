@@ -47,6 +47,14 @@ void ETCDParsedResponse::parse()
     }
 }
 
+uint64_t ETCDParsedResponse::getRaftTerm() const { return raftTerm; }
+
+uint64_t ETCDParsedResponse::getRevision() const { return revision; }
+
+uint64_t ETCDParsedResponse::getMemberId() const { return memberId; }
+
+uint64_t ETCDParsedResponse::getClusterId() const { return clusterId; }
+
 ETCDParsedResponse::KVEntry ETCDParsedResponse::parseSingleKvEntry(const Json::Value& kvVal)
 {
     __verifyKVEntryContent(kvVal);

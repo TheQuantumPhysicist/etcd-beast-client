@@ -35,6 +35,10 @@ public:
     static std::string __jsonToString(const Json::Value& v);
     const std::vector<ETCDParsedResponse::KVEntry>& getKVEntries();
     ETCDParsedResponse(const std::string RawJsonString = "");
+    uint64_t getRaftTerm() const;
+    uint64_t getRevision() const;
+    uint64_t getMemberId() const;
+    uint64_t getClusterId() const;
 };
 
 #endif // ETCDPARSEDRESPONSE_H
