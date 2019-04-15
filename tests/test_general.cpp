@@ -68,7 +68,7 @@ TEST(etcd_beast, set_get_many)
     std::vector<std::pair<std::string, std::string>> kvPairs;
     for (int i = 0; i < numOfEntries; i++) {
         std::string testKey = GenerateRandomString__test(10);
-        std::string testVal = GenerateRandomString__test(10);
+        std::string testVal = GenerateRandomString__test(1000);
         kvPairs.push_back(std::make_pair(testKey, testVal));
         ETCDResponse rs1 = client.set("/test/" + testKey, testVal).wait();
         responses.push_back(client.get("/test/" + testKey).wait());
@@ -157,7 +157,7 @@ TEST(etcd_beast, watch)
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
-    const int numOfWatchTriggeres = 100;
+    const int numOfWatchTriggeres = 1000;
     for (int i = 0; i < numOfWatchTriggeres; i++) {
         {
             std::lock_guard<std::mutex> lg(mtx);

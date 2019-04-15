@@ -63,7 +63,12 @@ ETCDParsedResponse::KVEntry ETCDParsedResponse::parseSingleKvEntry(const Json::V
     result.mod_revision    = kvVal["mod_revision"].asString();
     result.version         = kvVal["version"].asString();
     result.key             = boost::beast::detail::base64_decode(kvVal["key"].asString());
-    result.value           = boost::beast::detail::base64_decode(kvVal["value"].asString());
+    // value may not appear if it's empty
+    if (kvVal.isMember("value")) {
+        result.value = boost::beast::detail::base64_decode(kvVal["value"].asString());
+    } else {
+        result.value = "";
+    }
 
     return result;
 }
@@ -101,9 +106,7 @@ void ETCDParsedResponse::__verifyKVEntryContent(const Json::Value& kvVal)
     if (!kvVal.isMember("version")) {
         throw ETCDError(ETCDERROR_INVALID_MSG_HEADER, "No version in: " + __jsonToString(kvVal));
     }
-    if (!kvVal.isMember("value")) {
-        throw ETCDError(ETCDERROR_INVALID_MSG_HEADER, "No value in: " + __jsonToString(kvVal));
-    }
+    // value may not appear if it's empty
 }
 
 void ETCDParsedResponse::__processIfError(const Json::Value& v)

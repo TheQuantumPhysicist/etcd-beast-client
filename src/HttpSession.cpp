@@ -17,7 +17,10 @@ std::future<http::response<http::string_body>> HttpSession::getResponse()
     return responsePromise.get_future();
 }
 
-HttpSession::HttpSession(boost::asio::io_context& ioc) : resolver_(ioc), socket_(ioc), strand_(ioc) {}
+HttpSession::HttpSession(boost::asio::io_context& ioc) : resolver_(ioc), socket_(ioc), strand_(ioc)
+{
+    parser_.body_limit(std::numeric_limits<std::uint64_t>::max());
+}
 
 void HttpSession::run(http::verb verb, const std::string& host, const std::string& port,
                       const std::string& target, const std::string& body, int version,
