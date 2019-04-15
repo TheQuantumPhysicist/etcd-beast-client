@@ -21,8 +21,8 @@ Boost is added with a custom cmake file, because beast is quite new and is not a
 `git clone --recursive https://github.com/TheQuantumPhysicist/etcd-beast-client`
 Make sure you clone the submodules (that is why that recursive is there)
 2. Edit the CMake file to where your boost library is (I recommend that you compile it yourself)
-3. create a build directory. Assume here it is `build` inside the source dir
-4. run `cmake -DCMAKE_INSTALL_PREFIX=/path/to/install /path/to/the/repo/that/you/cloned`
+3. create a build directory
+4. run `cmake -DCMAKE_INSTALL_PREFIX=/path/to/install /path/to/the/repo/that/you/cloned` from within the build directory
 5. run `make`
 6. run `make install`
 
