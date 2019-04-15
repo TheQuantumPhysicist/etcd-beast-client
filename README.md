@@ -22,11 +22,11 @@ Boost is added with a custom cmake file, because beast is quite new and is not a
 Make sure you clone the submodules (that is why that recursive is there)
 2. Edit the CMake file to where your boost library is (I recommend that you compile it yourself)
 3. create a build directory. Assume here it is `build` inside the source dir
-4. run `cmake -DCMAKE_INSTALL_PREFIX=/path/to/install /path/to/the/repo/that/you/clone`
+4. run `cmake -DCMAKE_INSTALL_PREFIX=/path/to/install /path/to/the/repo/that/you/cloned`
 5. run `make`
 6. run `make install`
 
-Please do not install the library to your system unless you know what you are doing. I have not tried that and I never do that in my system.
+Please do not install the library to your system as root unless you know what you are doing. I have not tried that and I never do that in my system.
 
 ##### Contibuting
 Feel free to contribute by pushing to a branches. Please make sure any changes you make are thread-safe by heavily testing with clang-thread-sanitizer. This is the primary requirement of this library, besides testing anything added.
