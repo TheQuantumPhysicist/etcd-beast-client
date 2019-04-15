@@ -59,6 +59,32 @@ TEST(etcd_beast, delete_dir)
     EXPECT_EQ(rga2.getKVEntries().size(), 0);
 }
 
+TEST(etcd_beast, set_get_many)
+{
+    ETCDClient client("127.0.0.1", 2379);
+    srand(time(nullptr));
+    int                                              numOfEntries = 1000;
+    std::vector<ETCDResponse>                        responses;
+    std::vector<std::pair<std::string, std::string>> kvPairs;
+    for (int i = 0; i < numOfEntries; i++) {
+        std::string testKey = GenerateRandomString__test(10);
+        std::string testVal = GenerateRandomString__test(10);
+        kvPairs.push_back(std::make_pair(testKey, testVal));
+        ETCDResponse rs1 = client.set("/test/" + testKey, testVal).wait();
+        responses.push_back(client.get("/test/" + testKey).wait());
+    }
+    ASSERT_EQ(kvPairs.size(), responses.size());
+    ASSERT_EQ(kvPairs.size(), numOfEntries);
+    for (int i = 0; i < numOfEntries; i++) {
+        ASSERT_GE(responses[i].getKVEntries().size(), 1) << responses[i].getJsonResponse();
+        EXPECT_EQ(responses[i].getKVEntries().at(0).key, "/test/" + kvPairs[i].first);
+        EXPECT_EQ(responses[i].getKVEntries().at(0).value, kvPairs[i].second);
+    }
+    ETCDResponse rd   = client.delAll("/test/").wait();
+    ETCDResponse rga2 = client.getAll("/test/").wait();
+    EXPECT_EQ(rga2.getKVEntries().size(), 0);
+}
+
 std::mutex mtx;
 int        revision = -1;
 
