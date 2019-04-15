@@ -22,8 +22,8 @@ class ETCDClient
     void start();
     void stop();
 
-    static void        base64pad(std::string& b64string);
     static std::string ToBase64(const std::string& str);
+    static std::string ToBase64PlusOne(const std::string& str);
 
 public:
     ETCDClient(const std::string& Address, uint16_t Port,
@@ -31,7 +31,9 @@ public:
     ~ETCDClient();
     ETCDResponse set(const std::string& key, const std::string& value);
     ETCDResponse get(const std::string& key);
+    ETCDResponse getAll(const std::string& prefix);
     ETCDResponse del(const std::string& key);
+    ETCDResponse delAll(const std::string& prefix);
     ETCDWatch    watch(const std::string& key, const std::function<void(ETCDParsedResponse)> callback);
     ETCDResponse customCommand(const std::string& url, const std::string& jsonCommand);
     void         setVersionUrlPrefix(std::string str = "/v3alpha");

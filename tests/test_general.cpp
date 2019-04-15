@@ -36,7 +36,7 @@ TEST(etcd_beast, set_get_one)
     ASSERT_EQ(rg.getKVEntries().size(), 1);
     EXPECT_EQ(rg.getKVEntries().at(0).value, testVal);
     //    std::cout << rg.getJsonResponse() << std::endl;
-    ETCDResponse rd = client.del("test/abc").wait();
+    ETCDResponse rd = client.del("/test/abc").wait();
     EXPECT_EQ(rd.getKVEntries().size(), 0);
 }
 
@@ -54,8 +54,9 @@ TEST(etcd_beast, delete_dir)
     EXPECT_EQ(rg1.getKVEntries().at(0).value, testVal1);
     ASSERT_EQ(rg2.getKVEntries().size(), 1);
     EXPECT_EQ(rg2.getKVEntries().at(0).value, testVal2);
-    ETCDResponse rd = client.del("test").wait();
-    EXPECT_EQ(rd.getKVEntries().size(), 0);
+    ETCDResponse rd   = client.delAll("/test/").wait();
+    ETCDResponse rga2 = client.getAll("/test/").wait();
+    EXPECT_EQ(rga2.getKVEntries().size(), 0);
 }
 
 std::mutex mtx;
@@ -82,8 +83,10 @@ void callback(ETCDParsedResponse response, const std::string& expectedValue, uns
 TEST(etcd_beast, watch)
 {
 
-    ETCDClient client("127.0.0.1", 2379);
-    client.del("/test/");
+    ETCDClient   client("127.0.0.1", 2379);
+    ETCDResponse rd   = client.delAll("/test/").wait();
+    ETCDResponse rga2 = client.getAll("/test/").wait();
+    ASSERT_EQ(rga2.getKVEntries().size(), 0);
     srand(time(nullptr));
     std::string  testKey = GenerateRandomString__test(10);
     std::string  testVal = std::to_string(rand());
@@ -145,7 +148,34 @@ TEST(etcd_beast, watch)
     }
     w.cancel();
 
-    client.del("/test/");
+    ETCDResponse rd3  = client.delAll("/test/").wait();
+    ETCDResponse rga3 = client.getAll("/test/").wait();
+    EXPECT_EQ(rga3.getKVEntries().size(), 0);
+}
+
+TEST(etcd_beast, set_get_range)
+{
+    ETCDClient client("127.0.0.1", 2379);
+    srand(time(nullptr));
+    std::string  testVal = std::to_string(rand());
+    ETCDResponse rs1     = client.set("/test/abc1", testVal).wait();
+    ETCDResponse rs2     = client.set("/test/abc2", testVal).wait();
+    ETCDResponse rs3     = client.set("/test/abc3", testVal).wait();
+    ETCDResponse rg1     = client.get("/test/abc1").wait();
+    ASSERT_EQ(rg1.getKVEntries().size(), 1);
+    EXPECT_EQ(rg1.getKVEntries().at(0).value, testVal);
+    ETCDResponse rg2 = client.get("/test/abc2").wait();
+    ASSERT_EQ(rg2.getKVEntries().size(), 1);
+    EXPECT_EQ(rg2.getKVEntries().at(0).value, testVal);
+    ETCDResponse rg3 = client.get("/test/abc3").wait();
+    ASSERT_EQ(rg3.getKVEntries().size(), 1);
+    EXPECT_EQ(rg3.getKVEntries().at(0).value, testVal);
+    ETCDResponse rga1 = client.getAll("/test/abc").wait();
+    EXPECT_EQ(rga1.getKVEntries().size(), 3);
+    //    std::cout << "Return: " << rga.getJsonResponse() << std::endl;
+    ETCDResponse rd   = client.delAll("/test/").wait();
+    ETCDResponse rga2 = client.getAll("/test/").wait();
+    EXPECT_EQ(rga2.getKVEntries().size(), 0);
 }
 
 TEST(json_string_queue, basic)

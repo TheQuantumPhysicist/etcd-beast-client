@@ -1,7 +1,7 @@
 #include "etcd-beast/ETCDParsedResponse.h"
 
-#include "etcd-beast/BaseN.h"
 #include "etcd-beast/ETCDError.h"
+#include <boost/beast/core/detail/base64.hpp>
 
 ETCDParsedResponse::ETCDParsedResponse(const std::string RawJsonString)
     : rawJsonString(std::move(RawJsonString))
@@ -62,10 +62,8 @@ ETCDParsedResponse::KVEntry ETCDParsedResponse::parseSingleKvEntry(const Json::V
     result.create_revision = kvVal["create_revision"].asString();
     result.mod_revision    = kvVal["mod_revision"].asString();
     result.version         = kvVal["version"].asString();
-    const std::string& k64 = kvVal["key"].asString();
-    const std::string& v64 = kvVal["value"].asString();
-    bn::decode_b64(k64.cbegin(), k64.cend(), std::back_inserter(result.key));
-    bn::decode_b64(v64.cbegin(), v64.cend(), std::back_inserter(result.value));
+    result.key             = boost::beast::detail::base64_decode(kvVal["key"].asString());
+    result.value           = boost::beast::detail::base64_decode(kvVal["value"].asString());
 
     return result;
 }
@@ -115,7 +113,7 @@ void ETCDParsedResponse::__processIfError(const Json::Value& v)
         int              errorCode = v.isMember("code") ? v["code"].asInt() : -1;
         std::string      msg       = v["error"].isString() ? v["error"].asString() : w.write(v);
         throw ETCDError(ETCDERROR_ETCD_RETURNED_ERROR, errorCode,
-                        "ETCD returned an error: " + msg + "; Full json: " + w.write(v));
+                        "ETCD returned an error: " + msg + "; Full json response: " + w.write(v));
     }
 }
 

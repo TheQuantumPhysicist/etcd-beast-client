@@ -1,6 +1,5 @@
 #include "etcd-beast/ETCDResponse.h"
 
-#include "etcd-beast/BaseN.h"
 #include "etcd-beast/ETCDError.h"
 #include <jsoncpp/json/json.h>
 

@@ -1,8 +1,11 @@
-#include "etcd-beast/ETCDClient.h"
+﻿#include "etcd-beast/ETCDClient.h"
 
-#include "etcd-beast/BaseN.h"
 #include "etcd-beast/ETCDError.h"
 #include "etcd-beast/HttpSession.h"
+
+#include <boost/algorithm/hex.hpp>
+#include <boost/beast/core/detail/base64.hpp>
+#include <boost/multiprecision/cpp_int.hpp>
 
 void ETCDClient::start()
 {
@@ -26,19 +29,23 @@ void ETCDClient::stop()
     }
 }
 
-void ETCDClient::base64pad(std::string& b64string)
-{
-    unsigned padLength = 4 - b64string.size() % 4;
-    padLength          = padLength < 4 ? padLength : 0;
-    b64string += std::string(padLength, '=');
-}
-
 std::string ETCDClient::ToBase64(const std::string& str)
 {
-    std::string res;
-    bn::encode_b64(str.cbegin(), str.cend(), std::back_inserter(res));
-    base64pad(res);
-    return res;
+    return boost::beast::detail::base64_encode(str);
+}
+
+std::string ETCDClient::ToBase64PlusOne(const std::string& str)
+{
+    std::string                    keyEndHex = boost::algorithm::hex(str); // convert to hex
+    boost::multiprecision::cpp_int keyEndNum;
+    std::stringstream              keyEndSS(keyEndHex);
+    keyEndSS >> std::hex >> keyEndNum;   // convert hex to cpp_int
+    keyEndNum++;                         // add one
+    keyEndSS = std::stringstream();      // reset the stringstream to reuse it
+    keyEndSS << std::hex << keyEndNum;   // convert the cpp_int to hex stringstream
+    keyEndHex          = keyEndSS.str(); // to string
+    std::string result = boost::algorithm::unhex(keyEndHex);
+    return ToBase64(result);
 }
 
 ETCDClient::ETCDClient(const std::string& Address, uint16_t Port, unsigned ThreadCount)
@@ -74,6 +81,17 @@ ETCDResponse ETCDClient::get(const std::string& key)
     return customCommand(target, bget);
 }
 
+ETCDResponse ETCDClient::getAll(const std::string& prefix)
+{
+    std::string target = ETCDVersionPrefix + "/kv/range";
+
+    std::string k64Start = ToBase64(prefix);
+    std::string k64End   = ToBase64PlusOne(prefix);
+
+    const std::string bget = R"({"key": ")" + k64Start + R"(", "range_end": ")" + k64End + R"("})";
+    return customCommand(target, bget);
+}
+
 ETCDResponse ETCDClient::del(const std::string& key)
 {
     std::string target = ETCDVersionPrefix + "/kv/deleterange";
@@ -81,6 +99,17 @@ ETCDResponse ETCDClient::del(const std::string& key)
     std::string k64 = ToBase64(key);
 
     const std::string bget = R"({"key": ")" + k64 + R"("})";
+    return customCommand(target, bget);
+}
+
+ETCDResponse ETCDClient::delAll(const std::string& prefix)
+{
+    std::string target = ETCDVersionPrefix + "/kv/deleterange";
+
+    std::string k64Start = ToBase64(prefix);
+    std::string k64End   = ToBase64PlusOne(prefix);
+
+    const std::string bget = R"({"key": ")" + k64Start + R"(", "range_end": ")" + k64End + R"("})";
     return customCommand(target, bget);
 }
 
