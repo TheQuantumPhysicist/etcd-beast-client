@@ -4,7 +4,7 @@ This is a simple library for communicating with ETCD. The library is incomplete 
 
 ##### Q: Why new library?
 
-A: Because there is not much libraries that do that out there. There is [one library](https://github.com/nokia/etcd-cpp-apiv3) by Nokia, which is not maintained anymore and is full of bugs and is not thread-safe. Clang-thread-sanitizer was screaming all the time while I was using it. Besides, using the library is extremely complicated to compile and use, as grpc has to be embedded into that system, which itself depends on too many things.
+A: Because there is not much libraries that do that out there. There is [one library](https://github.com/nokia/etcd-cpp-apiv3) by Nokia, which is not maintained anymore and is full of bugs and is not thread-safe. Clang-thread-sanitizer was screaming all the time while I was using it. Besides, the library is extremely complicated to compile and use, as grpc has to be embedded into that system, which itself depends on too many things.
 
 ##### Goals of the library:
 This library is thread-safe. Any design changes I do, go to tests, and are executed with clang-thread-sanitizer. The library also uses the [json gateway of etcd](https://coreos.com/etcd/docs/latest/dev-guide/api_grpc_gateway.html). While this has its limitations, it is very simple.
