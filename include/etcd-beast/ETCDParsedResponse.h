@@ -19,26 +19,36 @@ public:
         std::string mod_revision;
         std::string version;
     };
+
 private:
     uint64_t clusterId = 0;
     uint64_t memberId  = 0;
     uint64_t revision  = 0;
     uint64_t raftTerm  = 0;
 
+    uint64_t leaseId         = 0;
+    uint64_t leaseTtl        = 0;
+    uint64_t leaseGrantedTtl = 0;
+
     std::vector<KVEntry> kvEntries;
     KVEntry              parseSingleKvEntry(const Json::Value& kvVal);
     void                 parse();
-    static void        __verifyHeaderContent(const Json::Value& v, const std::string& vStr);
-    static void        __verifyKVEntryContent(const Json::Value& kvVal);
-    static void        __processIfError(const Json::Value& v);
+    static void          __verifyHeaderContent(const Json::Value& v, const std::string& vStr);
+    static void          __verifyKVEntryContent(const Json::Value& kvVal);
+    static void          __processIfError(const Json::Value& v);
+
 public:
-    static std::string __jsonToString(const Json::Value& v);
+    static std::string                              __jsonToString(const Json::Value& v);
     const std::vector<ETCDParsedResponse::KVEntry>& getKVEntries();
     ETCDParsedResponse(const std::string RawJsonString = "");
     uint64_t getRaftTerm() const;
     uint64_t getRevision() const;
     uint64_t getMemberId() const;
     uint64_t getClusterId() const;
+
+    uint64_t getLeaseId() const;
+    uint64_t getTTL() const;
+    uint64_t getGrantedTTL() const;
 };
 
 #endif // ETCDPARSEDRESPONSE_H

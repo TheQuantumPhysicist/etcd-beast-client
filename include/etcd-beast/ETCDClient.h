@@ -25,15 +25,20 @@ class ETCDClient
     static std::string ToBase64(const std::string& str);
     static std::string ToBase64PlusOne(const std::string& str);
 
+    static const uint64_t LEASE_MIN_TTL = 2;
+
 public:
     ETCDClient(const std::string& Address, uint16_t Port,
                unsigned ThreadCount = std::thread::hardware_concurrency());
     ~ETCDClient();
-    ETCDResponse set(const std::string& key, const std::string& value);
+    ETCDResponse set(const std::string& key, const std::string& value, uint64_t leaseID = 0);
     ETCDResponse get(const std::string& key);
     ETCDResponse getAll(const std::string& prefix);
     ETCDResponse del(const std::string& key);
     ETCDResponse delAll(const std::string& prefix);
+    ETCDResponse leaseGrant(uint64_t ttl, uint64_t ID = 0);
+    ETCDResponse leaseRevoke(uint64_t leaseID);
+    ETCDResponse leaseTimeToLive(uint64_t leaseID);
     ETCDWatch    watch(const std::string& key, const std::function<void(ETCDParsedResponse)> callback);
     ETCDResponse customCommand(const std::string& url, const std::string& jsonCommand);
     void         setVersionUrlPrefix(std::string str = "/v3alpha");

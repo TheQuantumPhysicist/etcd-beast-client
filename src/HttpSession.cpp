@@ -12,7 +12,7 @@ namespace http = boost::beast::http;   // from <boost/beast/http.hpp>
 
 void HttpSession::cancel() { socket_.cancel(); }
 
-std::future<http::response<http::string_body>> HttpSession::getResponse()
+std::shared_future<boost::beast::http::response<http::string_body>> HttpSession::getResponse()
 {
     return responsePromise.get_future();
 }
@@ -187,7 +187,7 @@ void HttpSession::on_read_long_running(boost::system::error_code ec, std::size_t
     }
 }
 
-std::future<void> HttpSession::write_message(const std::string& msg)
+std::shared_future<void> HttpSession::write_message(const std::string& msg)
 {
     auto s = shared_from_this();
 

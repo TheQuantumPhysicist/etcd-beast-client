@@ -13,7 +13,7 @@
 class ETCDResponse
 {
 private:
-    mutable std::future<boost::beast::http::response<boost::beast::http::string_body>> response;
+    mutable std::shared_future<boost::beast::http::response<boost::beast::http::string_body>> response;
 
     bool                                                          isParsed          = false;
     bool                                                          isFutureRetrieved = false;
@@ -24,16 +24,30 @@ private:
 
 public:
     const std::vector<ETCDParsedResponse::KVEntry>& getKVEntries();
-    std::string                                     getJsonResponse() const;
+    std::string                                     getJsonResponse();
 
-    ETCDResponse(std::future<boost::beast::http::response<boost::beast::http::string_body>>&& Response);
-    //    ETCDResponse(ETCDResponse&& other);
-    //    ETCDResponse& operator=(ETCDResponse&& other);
-    //    ETCDResponse(const ETCDResponse& other) = delete;
-    //    ETCDResponse& operator=(const ETCDResponse& other) = delete;
+    ETCDResponse(
+        std::shared_future<boost::beast::http::response<boost::beast::http::string_body>> Response);
 
-    ETCDResponse&& wait();
-    std::size_t    kvCount();
+    ETCDResponse& wait();
+    std::size_t   kvCount();
+
+    uint64_t getRaftTerm();
+    uint64_t getRevision();
+    uint64_t getMemberId();
+    uint64_t getClusterId();
+
+    uint64_t getLeaseId();
+    /**
+     * @brief getTTL
+     * @return ttl, response to TimeToLive (remaining time) or grant (granted time)
+     */
+    uint64_t getTTL();
+    /**
+     * @brief getGrantedTTL
+     * @return granted ttl, response to TimeToLive call
+     */
+    uint64_t getGrantedTTL();
 };
 
 #endif // ETCDRESPONSE_H

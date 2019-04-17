@@ -30,13 +30,26 @@ void ETCDParsedResponse::parse()
     revision  = std::stoull(v["header"]["revision"].asString());
     raftTerm  = std::stoull(v["header"]["raft_term"].asString());
 
+    // lease response
+    if (v.isMember("ID") && v.isMember("TTL")) {
+        leaseId  = std::stoull(v["ID"].asString());
+        leaseTtl = std::stoull(v["TTL"].asString());
+    }
+    if (v.isMember("grantedTTL")) {
+        leaseGrantedTtl = std::stoull(v["grantedTTL"].asString());
+    }
+
     kvEntries.clear();
+
+    // get response
     if (v.isMember("kvs")) {
         const auto& kvs = v["kvs"];
         for (unsigned i = 0; i < kvs.size(); i++) {
             kvEntries.push_back(parseSingleKvEntry(kvs[i]));
         }
     }
+
+    // watch callback
     if (v.isMember("events")) {
         const auto& events = v["events"];
         for (unsigned i = 0; i < events.size(); i++) {
@@ -54,6 +67,12 @@ uint64_t ETCDParsedResponse::getRevision() const { return revision; }
 uint64_t ETCDParsedResponse::getMemberId() const { return memberId; }
 
 uint64_t ETCDParsedResponse::getClusterId() const { return clusterId; }
+
+uint64_t ETCDParsedResponse::getLeaseId() const { return leaseId; }
+
+uint64_t ETCDParsedResponse::getTTL() const { return leaseTtl; }
+
+uint64_t ETCDParsedResponse::getGrantedTTL() const { return leaseGrantedTtl; }
 
 ETCDParsedResponse::KVEntry ETCDParsedResponse::parseSingleKvEntry(const Json::Value& kvVal)
 {

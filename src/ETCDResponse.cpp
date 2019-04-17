@@ -22,25 +22,70 @@ const std::vector<ETCDParsedResponse::KVEntry>& ETCDResponse::getKVEntries()
     return parsedData.getKVEntries();
 }
 
-std::string ETCDResponse::getJsonResponse() const { return rawResponse.body(); }
-
-ETCDResponse::ETCDResponse(
-    std::future<boost::beast::http::response<boost::beast::http::string_body>>&& Response)
+std::string ETCDResponse::getJsonResponse()
 {
-    response = std::move(Response);
+    wait();
+    return rawResponse.body();
 }
 
-ETCDResponse&& ETCDResponse::wait()
+ETCDResponse::ETCDResponse(std::shared_future<boost::beast::http::response<http::string_body>> Response)
+{
+    response = Response;
+}
+
+ETCDResponse& ETCDResponse::wait()
 {
     if (!isFutureRetrieved) {
         isFutureRetrieved = true;
         rawResponse       = response.get();
     }
-    return std::move(*this);
+    return *this;
 }
 
 std::size_t ETCDResponse::kvCount()
 {
     parse();
     return getKVEntries().size();
+}
+
+uint64_t ETCDResponse::getRaftTerm()
+{
+    parse();
+    return parsedData.getRaftTerm();
+}
+
+uint64_t ETCDResponse::getRevision()
+{
+    parse();
+    return parsedData.getRevision();
+}
+
+uint64_t ETCDResponse::getMemberId()
+{
+    parse();
+    return parsedData.getMemberId();
+}
+
+uint64_t ETCDResponse::getClusterId()
+{
+    parse();
+    return parsedData.getClusterId();
+}
+
+uint64_t ETCDResponse::getLeaseId()
+{
+    parse();
+    return parsedData.getLeaseId();
+}
+
+uint64_t ETCDResponse::getTTL()
+{
+    parse();
+    return parsedData.getTTL();
+}
+
+uint64_t ETCDResponse::getGrantedTTL()
+{
+    parse();
+    return parsedData.getGrantedTTL();
 }

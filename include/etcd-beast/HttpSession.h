@@ -44,7 +44,7 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
 public:
     void cancel();
 
-    std::future<boost::beast::http::response<boost::beast::http::string_body>> getResponse();
+    std::shared_future<boost::beast::http::response<boost::beast::http::string_body>> getResponse();
 
     explicit HttpSession(boost::asio::io_context& ioc);
 
@@ -61,9 +61,9 @@ public:
     void on_write(boost::system::error_code ec, std::size_t /*bytes_transferred*/);
     void on_read(boost::system::error_code ec, std::size_t /*bytes_transferred*/);
     void on_read_long_running(boost::system::error_code ec, std::size_t /*bytes_transferred*/);
-    std::future<void> write_message(const std::string& msg);
-    void              write_message_callback(boost::system::error_code ec, std::size_t bytes_transferred,
-                                             std::shared_ptr<CancelMessageData> cancelData);
+    std::shared_future<void> write_message(const std::string& msg);
+    void write_message_callback(boost::system::error_code ec, std::size_t bytes_transferred,
+                                std::shared_ptr<CancelMessageData> cancelData);
 
     ~HttpSession();
 };

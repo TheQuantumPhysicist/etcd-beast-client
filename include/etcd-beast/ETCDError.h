@@ -21,6 +21,7 @@ static const int ETCDERROR_INVALID_JSON_STR_CLOSURE                    = 23;
 static const int ETCDERROR_REQUESTED_SINGLE_RESPONSE_FROM_LONG_REQUEST = 24;
 static const int ETCDERROR_FAILED_TO_PARSE_JSON_MESSAGE                = 25;
 static const int ETCDERROR_CANCEL_WATCH_RETURNED_ERROR                 = 26;
+static const int ETCDERROR_MIN_TTL_EXCEEDED_ERROR                      = 27;
 
 class ETCDError : public std::exception
 {

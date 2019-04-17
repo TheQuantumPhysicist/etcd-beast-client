@@ -60,15 +60,22 @@ ETCDClient::ETCDClient(const std::string& Address, uint16_t Port, unsigned Threa
 
 ETCDClient::~ETCDClient() { stop(); }
 
-ETCDResponse ETCDClient::set(const std::string& key, const std::string& value)
+ETCDResponse ETCDClient::set(const std::string& key, const std::string& value, uint64_t leaseID)
 {
     std::string target = "/v3alpha/kv/put";
 
     std::string k64 = ToBase64(key);
     std::string v64 = ToBase64(value);
 
-    const std::string bset = R"({"key": ")" + k64 + R"(", "value": ")" + v64 + R"("})";
-    return customCommand(target, bset);
+    if (leaseID == 0) {
+        // leaseID == 0 means it'll be generated
+        const std::string bset = R"({"key": ")" + k64 + R"(", "value": ")" + v64 + R"("})";
+        return customCommand(target, bset);
+    } else {
+        const std::string bset = R"({"key": ")" + k64 + R"(", "value": ")" + v64 + R"(", "lease": ")" +
+                                 std::to_string(leaseID) + R"("})";
+        return customCommand(target, bset);
+    }
 }
 
 ETCDResponse ETCDClient::get(const std::string& key)
@@ -111,6 +118,36 @@ ETCDResponse ETCDClient::delAll(const std::string& prefix)
 
     const std::string bget = R"({"key": ")" + k64Start + R"(", "range_end": ")" + k64End + R"("})";
     return customCommand(target, bget);
+}
+
+ETCDResponse ETCDClient::leaseGrant(uint64_t ttl, uint64_t ID)
+{
+    if (ttl < LEASE_MIN_TTL) {
+        throw ETCDError(ETCDERROR_MIN_TTL_EXCEEDED_ERROR,
+                        "A TTL value used that is less than the minimum. Increase LEASE_MIN_TTL in the "
+                        "header if you want it higher. The API may not response though.");
+    }
+    std::string target = ETCDVersionPrefix + "/lease/grant";
+
+    const std::string blease =
+        R"({"ID": ")" + std::to_string(ID) + R"(", "TTL": ")" + std::to_string(ttl) + R"("})";
+    return customCommand(target, blease);
+}
+
+ETCDResponse ETCDClient::leaseRevoke(uint64_t leaseID)
+{
+    std::string target = ETCDVersionPrefix + "/kv/lease/revoke";
+
+    const std::string blease = R"({"ID": ")" + std::to_string(leaseID) + R"("})";
+    return customCommand(target, blease);
+}
+
+ETCDResponse ETCDClient::leaseTimeToLive(uint64_t leaseID)
+{
+    std::string target = ETCDVersionPrefix + "/kv/lease/timetolive";
+
+    const std::string blease = R"({"ID": ")" + std::to_string(leaseID) + R"("})";
+    return customCommand(target, blease);
 }
 
 ETCDWatch ETCDClient::watch(const std::string&                            key,
