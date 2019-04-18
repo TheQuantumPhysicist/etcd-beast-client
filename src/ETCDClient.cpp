@@ -62,6 +62,10 @@ ETCDClient::~ETCDClient() { stop(); }
 
 ETCDResponse ETCDClient::set(const std::string& key, const std::string& value, uint64_t leaseID)
 {
+    if (key.empty()) {
+        throw ETCDError(ETCDERROR_EMPTY_KEY_ERROR, "Key cannot be empty");
+    }
+
     std::string target = "/v3alpha/kv/put";
 
     std::string k64 = ToBase64(key);
