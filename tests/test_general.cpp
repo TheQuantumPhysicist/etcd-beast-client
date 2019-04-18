@@ -338,7 +338,62 @@ TEST(etcd_beast, lease_with_set_get_die_out)
     ASSERT_EQ(rg2.getKVEntries().size(), 0);
 }
 
-TEST(json_string_queue, basic)
+TEST(etcd_beast, lease_with_set_get_revive_before_die)
+{
+    ETCDClient client("127.0.0.1", 2379);
+    srand(time(nullptr));
+
+    uint64_t leaseId1 = static_cast<uint64_t>(rand());
+    uint64_t ttl1     = static_cast<uint64_t>(3);
+
+    ETCDResponse rl1 = client.leaseGrant(ttl1, leaseId1).wait();
+    EXPECT_NO_THROW(rl1.getLeaseId());
+    EXPECT_EQ(rl1.getTTL(), ttl1);
+
+    ETCDResponse rttl1 = client.leaseTimeToLive(rl1.getLeaseId()).wait();
+    EXPECT_EQ(rttl1.getLeaseId(), leaseId1);
+    EXPECT_LE(rttl1.getTTL(), ttl1);
+    EXPECT_EQ(rttl1.getGrantedTTL(), ttl1);
+
+    std::string  k   = "/test/abc";
+    std::string  v   = "12345";
+    ETCDResponse rs1 = client.set(k, v, rl1.getLeaseId()).wait();
+    EXPECT_EQ(rs1.getKVEntries().size(), 0);
+
+    ETCDResponse rg1 = client.get(k).wait();
+    ASSERT_EQ(rg1.getKVEntries().size(), 1);
+    EXPECT_EQ(rg1.getKVEntries().at(0).key, k);
+    EXPECT_EQ(rg1.getKVEntries().at(0).value, v);
+
+    // overwrite the first value with a new ttl
+    v                 = "12345xxx";
+    uint64_t leaseId2 = static_cast<uint64_t>(rand());
+    uint64_t ttl2     = static_cast<uint64_t>(7);
+
+    ETCDResponse rl2 = client.leaseGrant(ttl2, leaseId2).wait();
+    EXPECT_NO_THROW(rl2.getLeaseId());
+    EXPECT_EQ(rl2.getTTL(), ttl2);
+
+    ETCDResponse rttl2 = client.leaseTimeToLive(rl2.getLeaseId()).wait();
+    EXPECT_EQ(rttl2.getLeaseId(), leaseId2);
+    EXPECT_LE(rttl2.getTTL(), ttl2);
+    EXPECT_EQ(rttl2.getGrantedTTL(), ttl2);
+
+    ETCDResponse rs2 = client.set(k, v, rl2.getLeaseId()).wait();
+    EXPECT_EQ(rs2.getKVEntries().size(), 0);
+
+    ETCDResponse rg2 = client.get(k).wait();
+    ASSERT_EQ(rg2.getKVEntries().size(), 1);
+    EXPECT_EQ(rg2.getKVEntries().at(0).key, k);
+    EXPECT_EQ(rg2.getKVEntries().at(0).value, v);
+
+    std::this_thread::sleep_for(std::chrono::seconds(ttl2 + 1));
+
+    ETCDResponse rg3 = client.get(k).wait();
+    ASSERT_EQ(rg3.getKVEntries().size(), 0);
+}
+
+TEST(etcd_client_helper__json_string_queue, basic)
 {
     JsonStringParserQueue q;
     EXPECT_NO_THROW(q.pushData(R"({"Hello": "World!"})"));
