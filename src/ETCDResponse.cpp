@@ -16,10 +16,16 @@ void ETCDResponse::parse()
     isParsed = true;
 }
 
-const std::vector<ETCDParsedResponse::KVEntry>& ETCDResponse::getKVEntries()
+const std::vector<ETCDParsedResponse::KVEntry>& ETCDResponse::getKVEntriesVec()
 {
     parse();
-    return parsedData.getKVEntries();
+    return parsedData.getKVEntriesVec();
+}
+
+const std::unordered_map<std::string, ETCDParsedResponse::KVEntry>& ETCDResponse::getKVEntriesMap()
+{
+    parse();
+    return parsedData.getKVEntriesMap();
 }
 
 std::string ETCDResponse::getJsonResponse()
@@ -45,7 +51,7 @@ ETCDResponse& ETCDResponse::wait()
 std::size_t ETCDResponse::kvCount()
 {
     parse();
-    return getKVEntries().size();
+    return getKVEntriesVec().size();
 }
 
 uint64_t ETCDResponse::getRaftTerm()

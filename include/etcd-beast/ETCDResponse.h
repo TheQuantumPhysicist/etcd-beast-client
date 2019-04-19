@@ -23,8 +23,9 @@ private:
     ETCDParsedResponse parsedData;
 
 public:
-    const std::vector<ETCDParsedResponse::KVEntry>& getKVEntries();
-    std::string                                     getJsonResponse();
+    const std::vector<ETCDParsedResponse::KVEntry>&                     getKVEntriesVec();
+    const std::unordered_map<std::string, ETCDParsedResponse::KVEntry>& getKVEntriesMap();
+    std::string                                                         getJsonResponse();
 
     ETCDResponse(
         std::shared_future<boost::beast::http::response<boost::beast::http::string_body>> Response);

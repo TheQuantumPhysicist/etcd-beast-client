@@ -33,11 +33,14 @@ TEST(etcd_beast, set_get_one)
     std::string  testVal = std::to_string(rand());
     ETCDResponse rs      = client.set("/test/abc", testVal).wait();
     ETCDResponse rg      = client.get("/test/abc").wait();
-    ASSERT_EQ(rg.getKVEntries().size(), 1);
-    EXPECT_EQ(rg.getKVEntries().at(0).value, testVal);
+    ASSERT_EQ(rg.getKVEntriesVec().size(), 1);
+    EXPECT_EQ(rg.getKVEntriesVec().at(0).value, testVal);
+    ASSERT_EQ(rg.getKVEntriesMap().size(), 1);
+    EXPECT_EQ(rg.getKVEntriesMap().begin()->second.value, testVal);
     //    std::cout << rg.getJsonResponse() << std::endl;
     ETCDResponse rd = client.del("/test/abc").wait();
-    EXPECT_EQ(rd.getKVEntries().size(), 0);
+    EXPECT_EQ(rd.getKVEntriesVec().size(), 0);
+    EXPECT_EQ(rd.getKVEntriesMap().size(), 0);
 }
 
 TEST(etcd_beast, delete_dir)
@@ -50,13 +53,18 @@ TEST(etcd_beast, delete_dir)
     ETCDResponse rg1      = client.get("/test/abc1").wait();
     ETCDResponse rs2      = client.set("/test/abc2", testVal2).wait();
     ETCDResponse rg2      = client.get("/test/abc2").wait();
-    ASSERT_EQ(rg1.getKVEntries().size(), 1);
-    EXPECT_EQ(rg1.getKVEntries().at(0).value, testVal1);
-    ASSERT_EQ(rg2.getKVEntries().size(), 1);
-    EXPECT_EQ(rg2.getKVEntries().at(0).value, testVal2);
+    ASSERT_EQ(rg1.getKVEntriesVec().size(), 1);
+    EXPECT_EQ(rg1.getKVEntriesVec().at(0).value, testVal1);
+    ASSERT_EQ(rg1.getKVEntriesMap().size(), 1);
+    EXPECT_EQ(rg1.getKVEntriesMap().begin()->second.value, testVal1);
+    ASSERT_EQ(rg2.getKVEntriesVec().size(), 1);
+    EXPECT_EQ(rg2.getKVEntriesVec().at(0).value, testVal2);
+    ASSERT_EQ(rg2.getKVEntriesMap().size(), 1);
+    EXPECT_EQ(rg2.getKVEntriesMap().begin()->second.value, testVal2);
     ETCDResponse rd   = client.delAll("/test/").wait();
     ETCDResponse rga2 = client.getAll("/test/").wait();
-    EXPECT_EQ(rga2.getKVEntries().size(), 0);
+    EXPECT_EQ(rga2.getKVEntriesVec().size(), 0);
+    EXPECT_EQ(rga2.getKVEntriesMap().size(), 0);
 }
 
 TEST(etcd_beast, set_get_many)
@@ -76,13 +84,13 @@ TEST(etcd_beast, set_get_many)
     ASSERT_EQ(kvPairs.size(), responses.size());
     ASSERT_EQ(kvPairs.size(), numOfEntries);
     for (int i = 0; i < numOfEntries; i++) {
-        ASSERT_GE(responses[i].getKVEntries().size(), 1) << responses[i].getJsonResponse();
-        EXPECT_EQ(responses[i].getKVEntries().at(0).key, "/test/" + kvPairs[i].first);
-        EXPECT_EQ(responses[i].getKVEntries().at(0).value, kvPairs[i].second);
+        ASSERT_GE(responses[i].getKVEntriesVec().size(), 1) << responses[i].getJsonResponse();
+        EXPECT_EQ(responses[i].getKVEntriesVec().at(0).key, "/test/" + kvPairs[i].first);
+        EXPECT_EQ(responses[i].getKVEntriesVec().at(0).value, kvPairs[i].second);
     }
     ETCDResponse rd   = client.delAll("/test/").wait();
     ETCDResponse rga2 = client.getAll("/test/").wait();
-    EXPECT_EQ(rga2.getKVEntries().size(), 0);
+    EXPECT_EQ(rga2.getKVEntriesVec().size(), 0);
 }
 
 std::mutex mtx;
@@ -93,9 +101,15 @@ void callback(ETCDParsedResponse response, const std::string& expectedValue, uns
 {
     std::lock_guard<std::mutex> lg(mtx);
     finished.store(true);
-    ASSERT_EQ(response.getKVEntries().size(), expectedSize) << "From line: " << callerLine;
-    if (!response.getKVEntries().empty()) {
-        EXPECT_EQ(response.getKVEntries().at(0).value, expectedValue) << "From line: " << callerLine;
+    ASSERT_EQ(response.getKVEntriesVec().size(), expectedSize) << "Vec 1 from line: " << callerLine;
+    ASSERT_EQ(response.getKVEntriesMap().size(), expectedSize) << "Map 1 from line: " << callerLine;
+    if (!response.getKVEntriesVec().empty()) {
+        EXPECT_EQ(response.getKVEntriesVec().at(0).value, expectedValue)
+            << "Vec 2 from line: " << callerLine;
+    }
+    if (!response.getKVEntriesMap().empty()) {
+        EXPECT_EQ(response.getKVEntriesMap().begin()->second.value, expectedValue)
+            << "Map 2 from line: " << callerLine;
     }
     // ensure that revision counting is correct
     if (revision < 0) {
@@ -112,14 +126,17 @@ TEST(etcd_beast, watch)
     ETCDClient   client("127.0.0.1", 2379);
     ETCDResponse rd   = client.delAll("/test/").wait();
     ETCDResponse rga2 = client.getAll("/test/").wait();
-    ASSERT_EQ(rga2.getKVEntries().size(), 0);
+    ASSERT_EQ(rga2.getKVEntriesVec().size(), 0);
+    ASSERT_EQ(rga2.getKVEntriesMap().size(), 0);
     srand(time(nullptr));
     std::string  testKey = GenerateRandomString__test(10);
     std::string  testVal = std::to_string(rand());
     ETCDResponse rs      = client.set("/test/" + testKey, testVal).wait();
     ETCDResponse rg      = client.get("/test/" + testKey).wait();
-    ASSERT_EQ(rg.getKVEntries().size(), 1);
-    EXPECT_EQ(rg.getKVEntries().at(0).value, testVal);
+    ASSERT_EQ(rg.getKVEntriesVec().size(), 1);
+    EXPECT_EQ(rg.getKVEntriesVec().at(0).value, testVal);
+    ASSERT_EQ(rg.getKVEntriesMap().size(), 1);
+    EXPECT_EQ(rg.getKVEntriesMap().begin()->second.value, testVal);
     //    std::cout << rg.getJsonResponse() << std::endl;
 
     std::string           expectedValue;
@@ -176,7 +193,8 @@ TEST(etcd_beast, watch)
 
     ETCDResponse rd3  = client.delAll("/test/").wait();
     ETCDResponse rga3 = client.getAll("/test/").wait();
-    EXPECT_EQ(rga3.getKVEntries().size(), 0);
+    EXPECT_EQ(rga3.getKVEntriesVec().size(), 0);
+    EXPECT_EQ(rga3.getKVEntriesMap().size(), 0);
 }
 
 TEST(etcd_beast, set_get_range)
@@ -188,20 +206,28 @@ TEST(etcd_beast, set_get_range)
     ETCDResponse rs2     = client.set("/test/abc2", testVal).wait();
     ETCDResponse rs3     = client.set("/test/abc3", testVal).wait();
     ETCDResponse rg1     = client.get("/test/abc1").wait();
-    ASSERT_EQ(rg1.getKVEntries().size(), 1);
-    EXPECT_EQ(rg1.getKVEntries().at(0).value, testVal);
+    ASSERT_EQ(rg1.getKVEntriesVec().size(), 1);
+    EXPECT_EQ(rg1.getKVEntriesVec().at(0).value, testVal);
+    ASSERT_EQ(rg1.getKVEntriesMap().size(), 1);
+    EXPECT_EQ(rg1.getKVEntriesMap().begin()->second.value, testVal);
     ETCDResponse rg2 = client.get("/test/abc2").wait();
-    ASSERT_EQ(rg2.getKVEntries().size(), 1);
-    EXPECT_EQ(rg2.getKVEntries().at(0).value, testVal);
+    ASSERT_EQ(rg2.getKVEntriesVec().size(), 1);
+    EXPECT_EQ(rg2.getKVEntriesVec().at(0).value, testVal);
+    ASSERT_EQ(rg2.getKVEntriesMap().size(), 1);
+    EXPECT_EQ(rg2.getKVEntriesMap().begin()->second.value, testVal);
     ETCDResponse rg3 = client.get("/test/abc3").wait();
-    ASSERT_EQ(rg3.getKVEntries().size(), 1);
-    EXPECT_EQ(rg3.getKVEntries().at(0).value, testVal);
+    ASSERT_EQ(rg3.getKVEntriesVec().size(), 1);
+    EXPECT_EQ(rg3.getKVEntriesVec().at(0).value, testVal);
+    ASSERT_EQ(rg3.getKVEntriesMap().size(), 1);
+    EXPECT_EQ(rg3.getKVEntriesMap().begin()->second.value, testVal);
     ETCDResponse rga1 = client.getAll("/test/abc").wait();
-    EXPECT_EQ(rga1.getKVEntries().size(), 3);
+    EXPECT_EQ(rga1.getKVEntriesVec().size(), 3);
+    EXPECT_EQ(rga1.getKVEntriesMap().size(), 3);
     //    std::cout << "Return: " << rga.getJsonResponse() << std::endl;
     ETCDResponse rd   = client.delAll("/test/").wait();
     ETCDResponse rga2 = client.getAll("/test/").wait();
-    EXPECT_EQ(rga2.getKVEntries().size(), 0);
+    EXPECT_EQ(rga2.getKVEntriesVec().size(), 0);
+    EXPECT_EQ(rga2.getKVEntriesMap().size(), 0);
 }
 
 TEST(etcd_beast, lease)
@@ -224,14 +250,16 @@ TEST(etcd_beast, lease)
         EXPECT_EQ(rttl.getGrantedTTL(), ttl);
 
         ETCDResponse rr = client.leaseRevoke(leaseId).wait();
-        EXPECT_NO_THROW(rr.getKVEntries().size());
+        EXPECT_NO_THROW(rr.getKVEntriesVec().size());
+        EXPECT_NO_THROW(rr.getKVEntriesMap().size());
     }
 
     for (int i = 0; i < leaseCount; i++) {
         ETCDResponse rl = client.leaseGrant(10).wait();
         EXPECT_NO_THROW(rl.getLeaseId());
         ETCDResponse rr = client.leaseRevoke(rl.getLeaseId()).wait();
-        EXPECT_NO_THROW(rr.getKVEntries().size());
+        EXPECT_NO_THROW(rr.getKVEntriesVec().size());
+        EXPECT_NO_THROW(rr.getKVEntriesMap().size());
     }
 }
 
@@ -254,18 +282,24 @@ TEST(etcd_beast, lease_with_set_get)
     std::string  k  = "/test/abc";
     std::string  v  = "12345";
     ETCDResponse rs = client.set(k, v, rl.getLeaseId()).wait();
-    EXPECT_EQ(rs.getKVEntries().size(), 0);
+    EXPECT_EQ(rs.getKVEntriesVec().size(), 0);
+    EXPECT_EQ(rs.getKVEntriesMap().size(), 0);
 
     ETCDResponse rg = client.get(k).wait();
-    ASSERT_EQ(rg.getKVEntries().size(), 1);
-    EXPECT_EQ(rg.getKVEntries().at(0).key, k);
-    EXPECT_EQ(rg.getKVEntries().at(0).value, v);
+    ASSERT_EQ(rg.getKVEntriesVec().size(), 1);
+    EXPECT_EQ(rg.getKVEntriesVec().at(0).key, k);
+    EXPECT_EQ(rg.getKVEntriesVec().at(0).value, v);
+    ASSERT_EQ(rg.getKVEntriesMap().size(), 1);
+    EXPECT_EQ(rg.getKVEntriesMap().begin()->second.key, k);
+    EXPECT_EQ(rg.getKVEntriesMap().begin()->second.value, v);
 
     ETCDResponse rr = client.leaseRevoke(leaseId).wait();
-    EXPECT_NO_THROW(rr.getKVEntries().size());
+    EXPECT_NO_THROW(rr.getKVEntriesVec().size());
+    EXPECT_NO_THROW(rr.getKVEntriesMap().size());
 
     ETCDResponse rg2 = client.get(k).wait();
-    ASSERT_EQ(rg2.getKVEntries().size(), 0);
+    ASSERT_EQ(rg2.getKVEntriesVec().size(), 0);
+    ASSERT_EQ(rg2.getKVEntriesMap().size(), 0);
 }
 
 TEST(etcd_beast, lease_with_set_get_many)
@@ -290,18 +324,24 @@ TEST(etcd_beast, lease_with_set_get_many)
         std::string  k  = GenerateRandomString__test(10);
         std::string  v  = GenerateRandomString__test(20);
         ETCDResponse rs = client.set(k, v, rl.getLeaseId()).wait();
-        EXPECT_EQ(rs.getKVEntries().size(), 0);
+        EXPECT_EQ(rs.getKVEntriesVec().size(), 0);
+        EXPECT_EQ(rs.getKVEntriesMap().size(), 0);
 
         ETCDResponse rg = client.get(k).wait();
-        ASSERT_EQ(rg.getKVEntries().size(), 1);
-        EXPECT_EQ(rg.getKVEntries().at(0).key, k);
-        EXPECT_EQ(rg.getKVEntries().at(0).value, v);
+        ASSERT_EQ(rg.getKVEntriesVec().size(), 1);
+        EXPECT_EQ(rg.getKVEntriesVec().at(0).key, k);
+        EXPECT_EQ(rg.getKVEntriesVec().at(0).value, v);
+        ASSERT_EQ(rg.getKVEntriesMap().size(), 1);
+        EXPECT_EQ(rg.getKVEntriesMap().begin()->second.key, k);
+        EXPECT_EQ(rg.getKVEntriesMap().begin()->second.value, v);
 
         ETCDResponse rr = client.leaseRevoke(leaseId).wait();
-        EXPECT_NO_THROW(rr.getKVEntries().size());
+        EXPECT_NO_THROW(rr.getKVEntriesVec().size());
+        EXPECT_NO_THROW(rr.getKVEntriesMap().size());
 
         ETCDResponse rg2 = client.get(k).wait();
-        ASSERT_EQ(rg2.getKVEntries().size(), 0);
+        ASSERT_EQ(rg2.getKVEntriesVec().size(), 0);
+        ASSERT_EQ(rg2.getKVEntriesMap().size(), 0);
     }
 }
 
@@ -325,17 +365,22 @@ TEST(etcd_beast, lease_with_set_get_die_out)
     std::string  k  = "/test/abc";
     std::string  v  = "12345";
     ETCDResponse rs = client.set(k, v, rl.getLeaseId()).wait();
-    EXPECT_EQ(rs.getKVEntries().size(), 0);
+    EXPECT_EQ(rs.getKVEntriesVec().size(), 0);
+    EXPECT_EQ(rs.getKVEntriesMap().size(), 0);
 
     ETCDResponse rg = client.get(k).wait();
-    ASSERT_EQ(rg.getKVEntries().size(), 1);
-    EXPECT_EQ(rg.getKVEntries().at(0).key, k);
-    EXPECT_EQ(rg.getKVEntries().at(0).value, v);
+    ASSERT_EQ(rg.getKVEntriesVec().size(), 1);
+    EXPECT_EQ(rg.getKVEntriesVec().at(0).key, k);
+    EXPECT_EQ(rg.getKVEntriesVec().at(0).value, v);
+    ASSERT_EQ(rg.getKVEntriesMap().size(), 1);
+    EXPECT_EQ(rg.getKVEntriesMap().begin()->second.key, k);
+    EXPECT_EQ(rg.getKVEntriesMap().begin()->second.value, v);
 
     std::this_thread::sleep_for(std::chrono::seconds(ttl + 1));
 
     ETCDResponse rg2 = client.get(k).wait();
-    ASSERT_EQ(rg2.getKVEntries().size(), 0);
+    ASSERT_EQ(rg2.getKVEntriesVec().size(), 0);
+    ASSERT_EQ(rg2.getKVEntriesMap().size(), 0);
 }
 
 TEST(etcd_beast, lease_with_set_get_revive_before_die)
@@ -358,12 +403,16 @@ TEST(etcd_beast, lease_with_set_get_revive_before_die)
     std::string  k   = "/test/abc";
     std::string  v   = "12345";
     ETCDResponse rs1 = client.set(k, v, rl1.getLeaseId()).wait();
-    EXPECT_EQ(rs1.getKVEntries().size(), 0);
+    EXPECT_EQ(rs1.getKVEntriesVec().size(), 0);
+    EXPECT_EQ(rs1.getKVEntriesMap().size(), 0);
 
     ETCDResponse rg1 = client.get(k).wait();
-    ASSERT_EQ(rg1.getKVEntries().size(), 1);
-    EXPECT_EQ(rg1.getKVEntries().at(0).key, k);
-    EXPECT_EQ(rg1.getKVEntries().at(0).value, v);
+    ASSERT_EQ(rg1.getKVEntriesVec().size(), 1);
+    EXPECT_EQ(rg1.getKVEntriesVec().at(0).key, k);
+    EXPECT_EQ(rg1.getKVEntriesVec().at(0).value, v);
+    ASSERT_EQ(rg1.getKVEntriesMap().size(), 1);
+    EXPECT_EQ(rg1.getKVEntriesMap().begin()->second.key, k);
+    EXPECT_EQ(rg1.getKVEntriesMap().begin()->second.value, v);
 
     // overwrite the first value with a new ttl
     v                 = "12345xxx";
@@ -380,17 +429,22 @@ TEST(etcd_beast, lease_with_set_get_revive_before_die)
     EXPECT_EQ(rttl2.getGrantedTTL(), ttl2);
 
     ETCDResponse rs2 = client.set(k, v, rl2.getLeaseId()).wait();
-    EXPECT_EQ(rs2.getKVEntries().size(), 0);
+    EXPECT_EQ(rs2.getKVEntriesVec().size(), 0);
+    EXPECT_EQ(rs2.getKVEntriesMap().size(), 0);
 
     ETCDResponse rg2 = client.get(k).wait();
-    ASSERT_EQ(rg2.getKVEntries().size(), 1);
-    EXPECT_EQ(rg2.getKVEntries().at(0).key, k);
-    EXPECT_EQ(rg2.getKVEntries().at(0).value, v);
+    ASSERT_EQ(rg2.getKVEntriesVec().size(), 1);
+    EXPECT_EQ(rg2.getKVEntriesVec().at(0).key, k);
+    EXPECT_EQ(rg2.getKVEntriesVec().at(0).value, v);
+    ASSERT_EQ(rg2.getKVEntriesMap().size(), 1);
+    EXPECT_EQ(rg2.getKVEntriesMap().begin()->second.key, k);
+    EXPECT_EQ(rg2.getKVEntriesMap().begin()->second.value, v);
 
     std::this_thread::sleep_for(std::chrono::seconds(ttl2 + 1));
 
     ETCDResponse rg3 = client.get(k).wait();
-    ASSERT_EQ(rg3.getKVEntries().size(), 0);
+    ASSERT_EQ(rg3.getKVEntriesVec().size(), 0);
+    ASSERT_EQ(rg3.getKVEntriesMap().size(), 0);
 }
 
 TEST(etcd_client_helper__json_string_queue, basic)

@@ -39,13 +39,14 @@ void ETCDParsedResponse::parse()
         leaseGrantedTtl = std::stoull(v["grantedTTL"].asString());
     }
 
-    kvEntries.clear();
+    kvEntriesVec.clear();
+    kvEntriesMap.clear();
 
     // get response
     if (v.isMember("kvs")) {
         const auto& kvs = v["kvs"];
         for (unsigned i = 0; i < kvs.size(); i++) {
-            kvEntries.push_back(parseSingleKvEntry(kvs[i]));
+            kvEntriesVec.push_back(parseSingleKvEntry(kvs[i]));
         }
     }
 
@@ -54,9 +55,13 @@ void ETCDParsedResponse::parse()
         const auto& events = v["events"];
         for (unsigned i = 0; i < events.size(); i++) {
             if (events[i].isMember("kv")) {
-                kvEntries.push_back(parseSingleKvEntry(events[i]["kv"]));
+                kvEntriesVec.push_back(parseSingleKvEntry(events[i]["kv"]));
             }
         }
+    }
+
+    for (const KVEntry& kv : kvEntriesVec) {
+        kvEntriesMap[kv.key] = kv;
     }
 }
 
@@ -145,4 +150,13 @@ std::string ETCDParsedResponse::__jsonToString(const Json::Value& v)
     return fastWriter.write(v);
 }
 
-const std::vector<ETCDParsedResponse::KVEntry>& ETCDParsedResponse::getKVEntries() { return kvEntries; }
+const std::vector<ETCDParsedResponse::KVEntry>& ETCDParsedResponse::getKVEntriesVec() const
+{
+    return kvEntriesVec;
+}
+
+const std::unordered_map<std::string, ETCDParsedResponse::KVEntry>&
+ETCDParsedResponse::getKVEntriesMap() const
+{
+    return kvEntriesMap;
+}
