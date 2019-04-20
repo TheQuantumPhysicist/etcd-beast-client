@@ -7,6 +7,7 @@ namespace http = boost::beast::http; // from <boost/beast/http.hpp>
 
 void ETCDResponse::parse()
 {
+    wait();
     if (isParsed) {
         return;
     }
