@@ -155,7 +155,10 @@ void HttpSession::on_read_long_running(boost::system::error_code ec, std::size_t
         auto ex = ETCDError(ETCDERROR_FAILED_TO_READ_SOCKET_LONG_RUNNING,
                             "Failed to read from socket for a long running session with error: " +
                                 ec.message());
-        if (ec == boost::asio::error::operation_aborted) {
+        if (ec == boost::asio::error::operation_aborted ||
+            ec == boost::beast::http::error::partial_message // long running request never really ends,
+                                                             // so all messages are partial
+        ) {
             return;
         }
         if (!firstTimeSet) {
