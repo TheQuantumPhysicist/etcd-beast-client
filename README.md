@@ -10,11 +10,11 @@ A: Because there is not much libraries that do that out there. There is [one lib
 This library is thread-safe. Any design changes I do, go to tests, and are executed with clang-thread-sanitizer. The library also uses the [json gateway of etcd](https://coreos.com/etcd/docs/latest/dev-guide/api_grpc_gateway.html). While this has its limitations, it is very simple.
 
 ##### Dependencies:
-- boost-beast and algorithm (header-only)
+- boost-beast and algorithm (header-only, retrieved using conan)
 - gtest, if you wanna compile with the tests (as a submodule)
 - jsoncpp
 
-Boost is added with a custom cmake file, because beast is quite new and is not available on all operating systems in the package that comes with the package manager. Please manage the cmake file as you find necessary.
+Boost is added with conan, it should get conan for you automatically, because beast is quite new and is not available on all operating systems in the package that comes with the package manager. Please manage the cmake file as you find necessary.
 
 ##### Installation
 1. Clone with 
