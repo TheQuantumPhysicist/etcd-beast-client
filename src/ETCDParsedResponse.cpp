@@ -3,6 +3,18 @@
 #include "etcd-beast/ETCDError.h"
 #include <boost/beast/core/detail/base64.hpp>
 
+std::string FromBase64(const std::string& str)
+{
+#if BOOST_VERSION >= 107100
+    std::string result;
+    std::size_t size = boost::beast::detail::base64::decoded_size(str.size());
+    result.resize(size);
+    boost::beast::detail::base64::decode((void*)result.data(), str.data(), str.size());
+#else
+    return boost::beast::detail::base64_encode(str);
+#endif
+}
+
 ETCDParsedResponse::ETCDParsedResponse(const std::string RawJsonString)
     : rawJsonString(std::move(RawJsonString))
 {
@@ -86,10 +98,10 @@ ETCDParsedResponse::KVEntry ETCDParsedResponse::parseSingleKvEntry(const Json::V
     result.create_revision = kvVal["create_revision"].asString();
     result.mod_revision    = kvVal["mod_revision"].asString();
     result.version         = kvVal["version"].asString();
-    result.key             = boost::beast::detail::base64_decode(kvVal["key"].asString());
+    result.key             = FromBase64(kvVal["key"].asString());
     // value may not appear if it's empty
     if (kvVal.isMember("value")) {
-        result.value = boost::beast::detail::base64_decode(kvVal["value"].asString());
+        result.value = FromBase64(kvVal["value"].asString());
     } else {
         result.value = "";
     }

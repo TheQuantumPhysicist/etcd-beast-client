@@ -31,7 +31,14 @@ void ETCDClient::stop()
 
 std::string ETCDClient::ToBase64(const std::string& str)
 {
+#if BOOST_VERSION >= 107100
+    std::string result;
+    std::size_t size = boost::beast::detail::base64::encoded_size(str.size());
+    result.resize(size);
+    boost::beast::detail::base64::encode((void*)result.data(), str.data(), str.size());
+#else
     return boost::beast::detail::base64_encode(str);
+#endif
 }
 
 std::string ETCDClient::ToBase64PlusOne(const std::string& str)
