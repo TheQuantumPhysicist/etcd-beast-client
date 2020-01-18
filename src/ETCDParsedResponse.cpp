@@ -9,7 +9,12 @@ std::string FromBase64(const std::string& str)
     std::string result;
     std::size_t size = boost::beast::detail::base64::decoded_size(str.size());
     result.resize(size);
-    boost::beast::detail::base64::decode((void*)result.data(), str.data(), str.size());
+    std::size_t writtenSize;
+    std::size_t readSize;
+    std::tie(writtenSize, readSize) =
+        boost::beast::detail::base64::decode((void*)result.data(), str.data(), str.size());
+    result.resize(writtenSize);
+    return result;
 #else
     return boost::beast::detail::base64_encode(str);
 #endif
